@@ -44,7 +44,7 @@ test "$(stat -c %u "/proc/${worker_pid}")" = "101"
 
 # 3. Docker embedded DNS (127.0.0.11) resolved from the nginx worker.
 docker network create "$network" >/dev/null
-docker run -d --name "$upstream" --network "$network" "$image" >/dev/null
+docker run -d --name "$upstream" --network "$network" --network-alias upstream "$image" >/dev/null
 docker run -d --name "$dns_proxy" --network "$network" -p 127.0.0.1:18081:80 \
   -v "${root}/tests/nginx.conf:/etc/nginx/nginx.conf:ro" \
   -v "${root}/tests/dns-default.conf:/etc/nginx/conf.d/default.conf:ro" \
@@ -54,7 +54,13 @@ for _ in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:18081/ >"$work/dns-body"; then break; fi
   sleep 1
 done
-grep -q 'Welcome to nginx' "$work/dns-body"
+if ! grep -q 'Welcome to nginx' "$work/dns-body"; then
+  echo "--- upstream log ---" >&2
+  docker logs "$upstream" >&2 || true
+  echo "--- dns proxy log ---" >&2
+  docker logs "$dns_proxy" >&2 || true
+  exit 1
+fi
 
 # 4. The image must not contain a shell or package manager.
 absent() {
