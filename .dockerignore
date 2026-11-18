@@ -1,0 +1,8 @@
+.git
+.github
+.gitignore
+tests
+scripts
+Makefile
+*.md
+.dockerignore
